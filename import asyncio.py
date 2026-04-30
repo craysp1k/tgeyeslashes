@@ -1,0 +1,87 @@
+import asyncio
+import logging
+from datetime import datetime
+
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters.command import Command
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.memory import MemoryStorage
+
+BOT_TOKEN = "8628487605:AAG__EehJFQ7AR79SZTg5POzhGx-ex2B_1A"
+
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+# состояние
+class BookingState(StatesGroup):
+    waiting_for_datetime = State()
+
+booked_slots = set()
+
+# кнопки
+main_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Запись")],
+        [KeyboardButton(text="Прайс")],
+        [KeyboardButton(text="Поддержка")]
+    ],
+    resize_keyboard=True
+)
+
+# старт
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer(
+        "Привет, красотка 💅\nВыбери, что тебя интересует:",
+        reply_markup=main_kb
+    )
+
+# ===================== ЗАПИСЬ =====================
+@dp.message(F.text == "Запись")
+async def booking(message: types.Message, state: FSMContext):
+    await state.set_state(BookingState.waiting_for_datetime)
+    await message.answer(
+        "Введи дату и время:\nYYYY-MM-DD HH:MM\n\nПример: 2026-04-25 14:00"
+    )
+
+@dp.message(BookingState.waiting_for_datetime)
+async def process_booking(message: types.Message, state: FSMContext):
+    try:
+        dt = datetime.strptime(message.text, "%Y-%m-%d %H:%M")
+
+        if dt in booked_slots:
+            await message.answer("❌ Это время уже занято")
+        else:
+            booked_slots.add(dt)
+            await message.answer(f"✅ Ты записана на {dt.strftime('%d.%m.%Y %H:%M')}")
+            await state.clear()
+
+    except:
+        await message.answer("❗ Неверный формат")
+
+# ===================== ПРАЙС =====================
+@dp.message(F.text == "Прайс")
+async def price(message: types.Message):
+    await message.answer(
+        "Вот мой актуальный прайс 💖\n\n"
+        "Light (1-1,5D) — 1800\n"
+        "Medium (2-4D) — 2000\n"
+        "Mega (5-10D) — 2500\n"
+        "Снятие — 400"
+    )
+
+# ===================== ПОДДЕРЖКА =====================
+@dp.message(F.text == "Поддержка")
+async def support(message: types.Message):
+    await message.answer("Напиши в поддержку:\n@amongusik")
+
+# ===================== ЗАПУСК =====================
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
